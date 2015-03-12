@@ -57,7 +57,9 @@ CREATE TABLE test_table2 (
   c_timestamp timestamp,
   c_timestamptz timestamptz,
   c_interval interval,
-  c_int4range int4range);
+  c_int4range int4range,
+  c_inet inet,
+  c_macaddr macaddr);
 
 CREATE LANGUAGE plpgsql;
 

@@ -38,6 +38,8 @@ encode(textarray, L) when is_list(L)        -> encode_array(text, L);
 encode(uuidarray, L) when is_list(L)        -> encode_array(uuid, L);
 encode(varchararray, L) when is_list(L)     -> encode_array(varchar, L);
 encode(int4range, R) when is_tuple(R)       -> encode_int4range(R);
+encode(inet, A)                             -> encode_inet(A);
+encode(macaddr, A)                          -> encode_macaddr(A);
 encode(Type, L) when is_list(L)             -> encode(Type, list_to_binary(L));
 encode(_Type, _Value)                       -> {error, unsupported}.
 
@@ -68,6 +70,8 @@ decode(textarray, B)                        -> decode_array(B);
 decode(uuidarray, B)                        -> decode_array(B);
 decode(varchararray, B)                     -> decode_array(B);
 decode(int4range, B)                        -> decode_int4range(B);
+decode(inet, B)                             -> decode_inet(B);
+decode(macaddr, B)                          -> decode_macaddr(B);
 decode(_Other, Bin)                         -> Bin.
 
 encode_array(Type, A) ->
@@ -162,6 +166,33 @@ decode_int4range(<<8:1/big-signed-unit:8, 4:?int32, To:?int32>>) -> {minus_infin
 decode_int4range(<<18:1/big-signed-unit:8, 4:?int32, From:?int32>>) -> {From, plus_infinity};
 decode_int4range(<<24:1/big-signed-unit:8>>) -> {minus_infinity, plus_infinity}.
 
+% TODO: deal with subnet masks, somehow.  They're not really
+% implemented in the `inet' module.
+
+%% @doc encode an IP address.  This accepts both IPv4 and IPv6
+%% addresses, in the form that the `inet' module uses: a tuple of four
+%% octets (v4) or eight 16-bit words (v6).
+encode_inet(Addr) when is_tuple(Addr) ->
+    inet:ntoa(Addr).
+decode_inet(Binary) ->
+    {ok, Addr} = inet:parse_address(Binary),
+    Addr.
+
+%% @doc encode a MAC-48 address.  This accepts a tuple of six octets.
+encode_macaddr({A,B,C,D,E,F}) ->
+    iolist_to_binary(io_lib:format("~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B", [A,B,C,D,E,F])).
+
+%% @doc decode a MAC-48 address from the database.  Yields a tuple of
+%% six octets.
+decode_macaddr(Bin) ->
+    Octets = string:tokens(Bin, ": -"),
+    Bytes = lists:foreach(fun(B) -> {ok, [N], _} = io_lib:fread("~16u", B), N end,
+                          Octets),
+    list_to_tuple(Bytes).
+
+
+
+
 supports(bool)    -> true;
 supports(bpchar)  -> true;
 supports(int2)    -> true;
@@ -191,4 +222,6 @@ supports(textarray)   -> true;
 supports(uuidarray)   -> true;
 supports(varchararray) -> true;
 supports(int4range) -> true;
+supports(inet)      -> true;
+supports(macaddr)   -> true;
 supports(_Type)       -> false.
