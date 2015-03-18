@@ -39,7 +39,7 @@ encode(uuidarray, L) when is_list(L)        -> encode_array(uuid, L);
 encode(varchararray, L) when is_list(L)     -> encode_array(varchar, L);
 encode(int4range, R) when is_tuple(R)       -> encode_int4range(R);
 encode(inet, A)                             -> encode_inet(A);
-encode(macaddr, A)                          -> encode_macaddr(A);
+encode(macaddr, {A,B,C,D,E,F})              -> <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>;
 encode(Type, L) when is_list(L)             -> encode(Type, list_to_binary(L));
 encode(_Type, _Value)                       -> {error, unsupported}.
 
@@ -71,7 +71,7 @@ decode(uuidarray, B)                        -> decode_array(B);
 decode(varchararray, B)                     -> decode_array(B);
 decode(int4range, B)                        -> decode_int4range(B);
 decode(inet, B)                             -> decode_inet(B);
-decode(macaddr, B)                          -> decode_macaddr(B);
+decode(macaddr, <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>) -> {A,B,C,D,E,F};
 decode(_Other, Bin)                         -> Bin.
 
 encode_array(Type, A) ->
@@ -173,23 +173,12 @@ decode_int4range(<<24:1/big-signed-unit:8>>) -> {minus_infinity, plus_infinity}.
 %% addresses, in the form that the `inet' module uses: a tuple of four
 %% octets (v4) or eight 16-bit words (v6).
 encode_inet(Addr) when is_tuple(Addr) ->
-    inet:ntoa(Addr).
+    %inet:ntoa(Addr).
+	{A,B,C,D} = Addr,
+	iolist_to_binary(io_lib:format("~B.~B.~B.~B", [A,B,C,D])).
 decode_inet(Binary) ->
     {ok, Addr} = inet:parse_address(Binary),
     Addr.
-
-%% @doc encode a MAC-48 address.  This accepts a tuple of six octets.
-encode_macaddr({A,B,C,D,E,F}) ->
-    iolist_to_binary(io_lib:format("~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B:~2.16.0B", [A,B,C,D,E,F])).
-
-%% @doc decode a MAC-48 address from the database.  Yields a tuple of
-%% six octets.
-decode_macaddr(Bin) ->
-    Octets = string:tokens(Bin, ": -"),
-    Bytes = lists:foreach(fun(B) -> {ok, [N], _} = io_lib:fread("~16u", B), N end,
-                          Octets),
-    list_to_tuple(Bytes).
-
 
 
 
