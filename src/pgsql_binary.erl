@@ -38,6 +38,7 @@ encode(textarray, L) when is_list(L)        -> encode_array(text, L);
 encode(uuidarray, L) when is_list(L)        -> encode_array(uuid, L);
 encode(varchararray, L) when is_list(L)     -> encode_array(varchar, L);
 encode(macaddrarray, L) when is_list(L)     -> encode_array(macaddr, L);
+encode(inetarray, L) when is_list(L)	    -> encode_array(inet, L);
 encode(int4range, R) when is_tuple(R)       -> encode_int4range(R);
 % inet form is one byte apiece for:
 % family, bits, is_cidr, address length
@@ -87,6 +88,7 @@ decode(textarray, B)                        -> decode_array(B);
 decode(uuidarray, B)                        -> decode_array(B);
 decode(varchararray, B)                     -> decode_array(B);
 decode(macaddrarray, B)                     -> decode_array(B);
+decode(inetarray, B)						-> decode_array(B);
 decode(int4range, B)                        -> decode_int4range(B);
 % TODO: deal with subnet masks, somehow.  They're not really
 % implemented in the `inet' module, whose types we use here.
@@ -227,4 +229,6 @@ supports(varchararray) -> true;
 supports(int4range) -> true;
 supports(inet)      -> true;
 supports(macaddr)   -> true;
+supports(macaddrarray) -> true;
+supports(inetarray) -> true;
 supports(_Type)       -> false.
