@@ -37,8 +37,25 @@ encode(chararray, L) when is_list(L)        -> encode_array(bpchar, L);
 encode(textarray, L) when is_list(L)        -> encode_array(text, L);
 encode(uuidarray, L) when is_list(L)        -> encode_array(uuid, L);
 encode(varchararray, L) when is_list(L)     -> encode_array(varchar, L);
+encode(macaddrarray, L) when is_list(L)     -> encode_array(macaddr, L);
 encode(int4range, R) when is_tuple(R)       -> encode_int4range(R);
-encode(inet, A)                             -> encode_inet(A);
+% inet form is one byte apiece for:
+% family, bits, is_cidr, address length
+% followed by the address
+encode(inet, {A,B,C,D})                     ->
+	<<8:?int32,
+	  2:8, % AF_INET, on linux (... thanks, postgresql)
+	  32:8, % bits of netmask (TODO)
+	  0:8, % is_cidr (ignored by postgresql)
+	  4:8, % address length, in bytes
+	  A:8,B:8,C:8,D:8>>;
+encode(inet, {A,B,C,D,E,F,G,H})             ->
+	<<20:?int32,
+	  3:8, % AF_INET, according to postgresql (== AF_INET+1)
+	  128:8, % bits of netmask (TODO)
+	  0:8, % is_cidr (ignored by postgresql)
+	  16:8, % address length, in bytes
+	  A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>;
 encode(macaddr, {A,B,C,D,E,F})              -> <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>;
 encode(Type, L) when is_list(L)             -> encode(Type, list_to_binary(L));
 encode(_Type, _Value)                       -> {error, unsupported}.
@@ -69,8 +86,20 @@ decode(chararray, B)                        -> decode_array(B);
 decode(textarray, B)                        -> decode_array(B);
 decode(uuidarray, B)                        -> decode_array(B);
 decode(varchararray, B)                     -> decode_array(B);
+decode(macaddrarray, B)                     -> decode_array(B);
 decode(int4range, B)                        -> decode_int4range(B);
-decode(inet, B)                             -> decode_inet(B);
+% TODO: deal with subnet masks, somehow.  They're not really
+% implemented in the `inet' module, whose types we use here.
+decode(inet, <<2:8, % inet4
+			   _:8, % netmask bit length
+			   _:8, % is_cidr
+			   4:8, % address length
+			   A:8,B:8,C:8,D:8>>)           -> {A,B,C,D};
+decode(inet, <<3:8, % inet6
+			   _:8, % netmask bit length
+			   _:8, % is_cidr
+			   16:8, % address length
+			   A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>) -> {A,B,C,D,E,F,G,H};
 decode(macaddr, <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>) -> {A,B,C,D,E,F};
 decode(_Other, Bin)                         -> Bin.
 
@@ -165,21 +194,6 @@ decode_int4range(<<2:1/big-signed-unit:8, 4:?int32, From:?int32, 4:?int32, To:?i
 decode_int4range(<<8:1/big-signed-unit:8, 4:?int32, To:?int32>>) -> {minus_infinity, To};
 decode_int4range(<<18:1/big-signed-unit:8, 4:?int32, From:?int32>>) -> {From, plus_infinity};
 decode_int4range(<<24:1/big-signed-unit:8>>) -> {minus_infinity, plus_infinity}.
-
-% TODO: deal with subnet masks, somehow.  They're not really
-% implemented in the `inet' module.
-
-%% @doc encode an IP address.  This accepts both IPv4 and IPv6
-%% addresses, in the form that the `inet' module uses: a tuple of four
-%% octets (v4) or eight 16-bit words (v6).
-encode_inet(Addr) when is_tuple(Addr) ->
-    %inet:ntoa(Addr).
-	{A,B,C,D} = Addr,
-	iolist_to_binary(io_lib:format("~B.~B.~B.~B", [A,B,C,D])).
-decode_inet(Binary) ->
-    {ok, Addr} = inet:parse_address(Binary),
-    Addr.
-
 
 
 supports(bool)    -> true;
