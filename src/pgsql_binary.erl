@@ -57,7 +57,7 @@ encode(inet, {A,B,C,D,E,F,G,H})             ->
 	  0:8, % is_cidr (ignored by postgresql)
 	  16:8, % address length, in bytes
 	  A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>;
-encode(macaddr, {A,B,C,D,E,F})              -> <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>;
+encode(macaddr, {A,B,C,D,E,F})              -> <<A:8,B:8,C:8,D:8,E:8,F:8>>;
 encode(Type, L) when is_list(L)             -> encode(Type, list_to_binary(L));
 encode(_Type, _Value)                       -> {error, unsupported}.
 
@@ -102,7 +102,7 @@ decode(inet, <<3:8, % inet6
 			   _:8, % is_cidr
 			   16:8, % address length
 			   A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>) -> {A,B,C,D,E,F,G,H};
-decode(macaddr, <<6:?int32, A:8,B:8,C:8,D:8,E:8,F:8>>) -> {A,B,C,D,E,F};
+decode(macaddr, <<A:8,B:8,C:8,D:8,E:8,F:8>>) -> {A,B,C,D,E,F};
 decode(_Other, Bin)                         -> Bin.
 
 encode_array(Type, A) ->
